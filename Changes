@@ -1,0 +1,5 @@
+Revision history for Perl extension Types::Serialiser
+
+0.01  Sun Oct 27 16:37:56 CET 2013
+	- original version; cloned from JSON-XS/CBOR-XS
+
