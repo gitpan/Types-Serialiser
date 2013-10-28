@@ -1,5 +1,13 @@
 Revision history for Perl extension Types::Serialiser
 
+	- document the Types::Serialisation protocol, in the hope
+          of other modules picking it up.
+        - alias JSON::PP::Boolean as class for booleans, without
+          introducing a dependency to it. It's ugly, but allows
+          JSON::PP to stay in core without dependency to
+          Types::Serialiser.
+        - actually add a simple testcase.
+
 0.01  Sun Oct 27 16:37:56 CET 2013
 	- original version; cloned from JSON-XS/CBOR-XS
 

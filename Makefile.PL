@@ -8,5 +8,8 @@ WriteMakefile(
 	            },
     VERSION_FROM => "Serialiser.pm",
     NAME         => "Types::Serialiser",
+    PREREQ_PM    => {
+       common::sense     => 0,
+    },
 );
 

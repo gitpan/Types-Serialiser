@@ -17,7 +17,9 @@ different implementations so they become interoperable between each other.
 
 package Types::Serialiser;
 
-our $VERSION = 0.01;
+use common::sense; # required to suppress annoying warnings
+
+our $VERSION = 0.02;
 
 =head1 SIMPLE SCALAR CONSTANTS
 
@@ -97,6 +99,13 @@ Returns false iff C<$value> is C<$Types::Serialiser::error>.
 
 =cut
 
+BEGIN {
+   # for historical reasons, and to avoid extra dependencies in JSON::PP,
+   # we alias *Types::Serialiser::Boolean with JSON::PP::Boolean.
+   package JSON::PP::Boolean;
+   *Types::Serialiser::Boolean:: = *JSON::PP::Boolean::;
+}
+
 our $true  = do { bless \(my $dummy = 1), Types::Serialiser::Boolean:: };
 our $false = do { bless \(my $dummy = 0), Types::Serialiser::Boolean:: };
 our $error = do { bless \(my $dummy    ), Types::Serialiser::Error::   };
@@ -110,13 +119,15 @@ sub is_true  ($) {  $_[0] && UNIVERSAL::isa $_[0], Types::Serialiser::Boolean:: 
 sub is_false ($) { !$_[0] && UNIVERSAL::isa $_[0], Types::Serialiser::Boolean:: }
 sub is_error ($) {           UNIVERSAL::isa $_[0], Types::Serialiser::Error::   }
 
-package Types::Serialiser::Boolean;
+package Types::Serialiser::BooleanBase;
 
 use overload
    "0+"     => sub { ${$_[0]} },
    "++"     => sub { $_[0] = ${$_[0]} + 1 },
    "--"     => sub { $_[0] = ${$_[0]} - 1 },
    fallback => 1;
+
+@Types::Serialiser::Boolean::ISA = Types::Serialiser::BooleanBase::;
 
 package Types::Serialiser::Error;
 
@@ -140,6 +151,66 @@ see if it's C<1> (true), C<0> (false) or C<undef> (error).
 
 While it is possible to use an isa test, directly comparing stash pointers
 is faster and guaranteed to work.
+
+For historical reasons, the C<Types::Serialiser::Boolean> stash is
+just an alias for C<JSON::PP::Boolean>. When printed, the classname
+withh usually be C<JSON::PP::Boolean>, but isa tests and stash pointer
+comparison will normally work correctly (i.e. Types::Serialiser::true ISA
+JSON::PP::Boolean, but also ISA Types::Serialiser::Boolean).
+
+=head1 A GENERIC OBJECT SERIALIATION PROTOCOL
+
+This section explains the object serialisation protocol used by
+L<CBOR::XS>. It is meant to be generic enough to support any kind of
+generic object serialiser.
+
+This protocol is called "the Types::Serialiser object serialisation
+protocol".
+
+=head2 ENCODING
+
+When the encoder encounters an object that it cannot otherwise encode (for
+example, L<CBOR::XS> can encode a few special types itself, and will first
+attempt to use the special C<TO_CBOR> serialisation protocol), it will
+look up the C<FREEZE> method on the object.
+
+If it exists, it will call it with two arguments: the object to
+serialise, and a constant string that indicates the name of the
+serialisationformat. For example L<CBOR::XS> uses C<CBOR>, and L<JSON> and
+L<JSON::XS> (or any other JSON serialiser), would use C<JSON> as second
+argument.
+
+The C<FREEZE> method can then return zero or more values to identify the
+object instance. The serialiser is then supposed to encode the class name
+and all of these return values (which must be encodable in the format)
+using the relevant form for perl objects. In CBOR for example, there is a
+registered tag number for encoded perl objects.
+
+=head2 DECODING
+
+When the decoder then encounters such an encoded perl object, it should
+look up the C<THAW> method on the stored classname, and invoke it with the
+classname, the constant string to identify the format, and all the return
+values returned by C<FREEZE>.
+
+=head2 EXAMPLES
+
+See the C<OBJECT SERIALISATION> section in the L<CBOR::XS> manpage for
+more details, an example implementation, and code examples.
+
+Here is an example C<FREEZE>/C<THAW> method pair:
+
+   sub My::Object::FREEZE {
+      my ($self, $serialiser) = @_;
+
+      ($self->{type}, $self->{id}, $self->{variant})
+   }
+
+   sub My::Object::THAW {
+      my ($class, $serialiser, $type, $id, $variant) = @_;
+
+      $class-<new (type => $type, id => $id, variant => $variant)
+   }
 
 =head1 BUGS
 
