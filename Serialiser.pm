@@ -19,7 +19,7 @@ package Types::Serialiser;
 
 use common::sense; # required to suppress annoying warnings
 
-our $VERSION = 0.02;
+our $VERSION = 0.03;
 
 =head1 SIMPLE SCALAR CONSTANTS
 
@@ -103,7 +103,22 @@ BEGIN {
    # for historical reasons, and to avoid extra dependencies in JSON::PP,
    # we alias *Types::Serialiser::Boolean with JSON::PP::Boolean.
    package JSON::PP::Boolean;
+
    *Types::Serialiser::Boolean:: = *JSON::PP::Boolean::;
+}
+
+{
+   # this must done before blessing to work around bugs
+   # in perl < 5.18 (it seems to be fixed in 5.18).
+   package Types::Serialiser::BooleanBase;
+
+   use overload
+      "0+"     => sub { ${$_[0]} },
+      "++"     => sub { $_[0] = ${$_[0]} + 1 },
+      "--"     => sub { $_[0] = ${$_[0]} - 1 },
+      fallback => 1;
+
+   @Types::Serialiser::Boolean::ISA = Types::Serialiser::BooleanBase::;
 }
 
 our $true  = do { bless \(my $dummy = 1), Types::Serialiser::Boolean:: };
@@ -118,16 +133,6 @@ sub is_bool  ($) {           UNIVERSAL::isa $_[0], Types::Serialiser::Boolean:: 
 sub is_true  ($) {  $_[0] && UNIVERSAL::isa $_[0], Types::Serialiser::Boolean:: }
 sub is_false ($) { !$_[0] && UNIVERSAL::isa $_[0], Types::Serialiser::Boolean:: }
 sub is_error ($) {           UNIVERSAL::isa $_[0], Types::Serialiser::Error::   }
-
-package Types::Serialiser::BooleanBase;
-
-use overload
-   "0+"     => sub { ${$_[0]} },
-   "++"     => sub { $_[0] = ${$_[0]} + 1 },
-   "--"     => sub { $_[0] = ${$_[0]} - 1 },
-   fallback => 1;
-
-@Types::Serialiser::Boolean::ISA = Types::Serialiser::BooleanBase::;
 
 package Types::Serialiser::Error;
 
@@ -185,6 +190,12 @@ object instance. The serialiser is then supposed to encode the class name
 and all of these return values (which must be encodable in the format)
 using the relevant form for perl objects. In CBOR for example, there is a
 registered tag number for encoded perl objects.
+
+The values that C<FREEZE> returns must be serialisable with the serialiser
+that calls it. Therefore, it is recommended to use simple types such as
+strings and numbers, and maybe array references and hashes (basically, the
+JSON data model). You can always use a more complex format for a specific
+serialiser by checking the second argument.
 
 =head2 DECODING
 

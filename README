@@ -110,6 +110,12 @@ A GENERIC OBJECT SERIALIATION PROTOCOL
     format) using the relevant form for perl objects. In CBOR for example,
     there is a registered tag number for encoded perl objects.
 
+    The values that "FREEZE" returns must be serialisable with the
+    serialiser that calls it. Therefore, it is recommended to use simple
+    types such as strings and numbers, and maybe array references and hashes
+    (basically, the JSON data model). You can always use a more complex
+    format for a specific serialiser by checking the second argument.
+
   DECODING
     When the decoder then encounters such an encoded perl object, it should
     look up the "THAW" method on the stored classname, and invoke it with
