@@ -19,7 +19,7 @@ package Types::Serialiser;
 
 use common::sense; # required to suppress annoying warnings
 
-our $VERSION = 0.03;
+our $VERSION = '1.0';
 
 =head1 SIMPLE SCALAR CONSTANTS
 
@@ -159,7 +159,7 @@ is faster and guaranteed to work.
 
 For historical reasons, the C<Types::Serialiser::Boolean> stash is
 just an alias for C<JSON::PP::Boolean>. When printed, the classname
-withh usually be C<JSON::PP::Boolean>, but isa tests and stash pointer
+with usually be C<JSON::PP::Boolean>, but isa tests and stash pointer
 comparison will normally work correctly (i.e. Types::Serialiser::true ISA
 JSON::PP::Boolean, but also ISA Types::Serialiser::Boolean).
 
@@ -179,30 +179,41 @@ example, L<CBOR::XS> can encode a few special types itself, and will first
 attempt to use the special C<TO_CBOR> serialisation protocol), it will
 look up the C<FREEZE> method on the object.
 
-If it exists, it will call it with two arguments: the object to
-serialise, and a constant string that indicates the name of the
-serialisationformat. For example L<CBOR::XS> uses C<CBOR>, and L<JSON> and
-L<JSON::XS> (or any other JSON serialiser), would use C<JSON> as second
-argument.
+Note that the C<FREEZE> method will normally be called I<during> encoding,
+and I<MUST NOT> change the data structure that is being encoded in any
+way, or it might cause memory corruption or worse.
+
+If it exists, it will call it with two arguments: the object to serialise,
+and a constant string that indicates the name of the data model. For
+example L<CBOR::XS> uses C<CBOR>, and the L<JSON> and L<JSON::XS> modules
+(or any other JSON serialiser), would use C<JSON> as second argument.
 
 The C<FREEZE> method can then return zero or more values to identify the
 object instance. The serialiser is then supposed to encode the class name
 and all of these return values (which must be encodable in the format)
-using the relevant form for perl objects. In CBOR for example, there is a
+using the relevant form for Perl objects. In CBOR for example, there is a
 registered tag number for encoded perl objects.
 
 The values that C<FREEZE> returns must be serialisable with the serialiser
 that calls it. Therefore, it is recommended to use simple types such as
 strings and numbers, and maybe array references and hashes (basically, the
 JSON data model). You can always use a more complex format for a specific
-serialiser by checking the second argument.
+data model by checking the second argument, the data model.
+
+The "data model" is not the same as the "data format" - the data model
+indicates what types and kinds of return values can be returned from
+C<FREEZE>. For example, in C<CBOR> it is permissible to return tagged CBOR
+values, while JSON does not support these at all, so C<JSON> would be a
+valid (but too limited) data model name for C<CBOR::XS>. similarly, a
+serialising format that supports more or less the same data model as JSON
+could use C<JSON> as data model without losing anything.
 
 =head2 DECODING
 
 When the decoder then encounters such an encoded perl object, it should
 look up the C<THAW> method on the stored classname, and invoke it with the
-classname, the constant string to identify the format, and all the return
-values returned by C<FREEZE>.
+classname, the constant string to identify the data model/data format, and
+all the return values returned by C<FREEZE>.
 
 =head2 EXAMPLES
 
@@ -212,15 +223,15 @@ more details, an example implementation, and code examples.
 Here is an example C<FREEZE>/C<THAW> method pair:
 
    sub My::Object::FREEZE {
-      my ($self, $serialiser) = @_;
+      my ($self, $model) = @_;
 
       ($self->{type}, $self->{id}, $self->{variant})
    }
 
    sub My::Object::THAW {
-      my ($class, $serialiser, $type, $id, $variant) = @_;
+      my ($class, $model, $type, $id, $variant) = @_;
 
-      $class-<new (type => $type, id => $id, variant => $variant)
+      $class->new (type => $type, id => $id, variant => $variant)
    }
 
 =head1 BUGS

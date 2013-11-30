@@ -79,7 +79,7 @@ NOTES FOR XS USERS
     pointers is faster and guaranteed to work.
 
     For historical reasons, the "Types::Serialiser::Boolean" stash is just
-    an alias for "JSON::PP::Boolean". When printed, the classname withh
+    an alias for "JSON::PP::Boolean". When printed, the classname with
     usually be "JSON::PP::Boolean", but isa tests and stash pointer
     comparison will normally work correctly (i.e. Types::Serialiser::true
     ISA JSON::PP::Boolean, but also ISA Types::Serialiser::Boolean).
@@ -98,29 +98,42 @@ A GENERIC OBJECT SERIALIATION PROTOCOL
     first attempt to use the special "TO_CBOR" serialisation protocol), it
     will look up the "FREEZE" method on the object.
 
+    Note that the "FREEZE" method will normally be called *during* encoding,
+    and *MUST NOT* change the data structure that is being encoded in any
+    way, or it might cause memory corruption or worse.
+
     If it exists, it will call it with two arguments: the object to
-    serialise, and a constant string that indicates the name of the
-    serialisationformat. For example CBOR::XS uses "CBOR", and JSON and
-    JSON::XS (or any other JSON serialiser), would use "JSON" as second
+    serialise, and a constant string that indicates the name of the data
+    model. For example CBOR::XS uses "CBOR", and the JSON and JSON::XS
+    modules (or any other JSON serialiser), would use "JSON" as second
     argument.
 
     The "FREEZE" method can then return zero or more values to identify the
     object instance. The serialiser is then supposed to encode the class
     name and all of these return values (which must be encodable in the
-    format) using the relevant form for perl objects. In CBOR for example,
+    format) using the relevant form for Perl objects. In CBOR for example,
     there is a registered tag number for encoded perl objects.
 
     The values that "FREEZE" returns must be serialisable with the
     serialiser that calls it. Therefore, it is recommended to use simple
     types such as strings and numbers, and maybe array references and hashes
     (basically, the JSON data model). You can always use a more complex
-    format for a specific serialiser by checking the second argument.
+    format for a specific data model by checking the second argument, the
+    data model.
+
+    The "data model" is not the same as the "data format" - the data model
+    indicates what types and kinds of return values can be returned from
+    "FREEZE". For example, in "CBOR" it is permissible to return tagged CBOR
+    values, while JSON does not support these at all, so "JSON" would be a
+    valid (but too limited) data model name for "CBOR::XS". similarly, a
+    serialising format that supports more or less the same data model as
+    JSON could use "JSON" as data model without losing anything.
 
   DECODING
     When the decoder then encounters such an encoded perl object, it should
     look up the "THAW" method on the stored classname, and invoke it with
-    the classname, the constant string to identify the format, and all the
-    return values returned by "FREEZE".
+    the classname, the constant string to identify the data model/data
+    format, and all the return values returned by "FREEZE".
 
   EXAMPLES
     See the "OBJECT SERIALISATION" section in the CBOR::XS manpage for more
@@ -129,15 +142,15 @@ A GENERIC OBJECT SERIALIATION PROTOCOL
     Here is an example "FREEZE"/"THAW" method pair:
 
        sub My::Object::FREEZE {
-          my ($self, $serialiser) = @_;
+          my ($self, $model) = @_;
 
           ($self->{type}, $self->{id}, $self->{variant})
        }
 
        sub My::Object::THAW {
-          my ($class, $serialiser, $type, $id, $variant) = @_;
+          my ($class, $model, $type, $id, $variant) = @_;
 
-          $class-<new (type => $type, id => $id, variant => $variant)
+          $class->new (type => $type, id => $id, variant => $variant)
        }
 
 BUGS
